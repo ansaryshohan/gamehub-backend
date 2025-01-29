@@ -31,6 +31,7 @@ async function run() {
     // get a single game review data details
     app.get("/review/:id", async (req, res) => {
       const { id } = req.params;
+      // console.log(id)
       try {
         const gameData = await gamesCollection
           .aggregate([
@@ -57,7 +58,7 @@ async function run() {
       // console.log(gameData)
       try {
         const insertReview = await gamesCollection.insertOne(req.body);
-        console.log(insertReview);
+        // console.log(insertReview);
         return res.status(201).json(insertReview);
       } catch (error) {
         return res.status(401).json("review adding unsuccessful");
@@ -178,14 +179,64 @@ async function run() {
         console.log(error);
       }
     });
+    // get data of wishlist for wishlist page
+    app.get("/allWishlist/:userEmail", async (req, res) => {
+      const { userEmail } = req.params;
+      // console.log("Received userEmail:", userEmail);
+      try {
+        const wishlist = await wishlistCollection
+          .aggregate([
+            { $match: { userEmail } },
+            {
+              $addFields: {
+                wishlistObjectIds: {
+                  $map: {
+                    input: "$wishlist",
+                    as: "gameId",
+                    in: { $toObjectId: "$$gameId" }, // Convert to ObjectId
+                  },
+                },
+              },
+            },
+            {
+              $lookup: {
+                from: "allGames",
+                localField: "wishlistObjectIds",
+                foreignField: "_id",
+                as: "games",
+              },
+            },
+            {
+              $project: {
+                games: 1,
+              },
+            },
+          ])
+          .toArray();
+        // console.log(wishlist);
+        if (wishlist) {
+          return res
+            .status(200)
+            .json({
+              success: true,
+              message: "wishlist",
+              data: wishlist[0]?.games,
+            });
+        }
+        return res
+          .status(200)
+          .json({ success: false, message: "wishlist", data: null });
+      } catch (error) {
+        return res.status(401).json({ success: false, error });
+      }
+    });
     // get data of wishlist
     app.get("/wishlist/:userEmail", async (req, res) => {
-      console.log("hello")
       const { userEmail } = req.params;
-      console.log(userEmail);
+      // console.log("Received userEmail:", userEmail);
       try {
         const wishlist = await wishlistCollection.findOne({ userEmail });
-        console.log(wishlist);
+        // console.log(wishlist);
         if (wishlist) {
           return res
             .status(200)
@@ -249,7 +300,7 @@ async function run() {
       try {
         const findUser = await wishlistCollection.findOne({ userEmail });
         if (!findUser) {
-          return res.status(201).json({
+          return res.status(301).json({
             success: false,
             message: "user not found",
           });
@@ -260,15 +311,41 @@ async function run() {
         );
 
         if (updateWishlist.acknowledged) {
-          const newWishListData = await wishlistCollection.findOne({
-            userEmail,
-          });
+          const newWishListData = await wishlistCollection
+            .aggregate([
+              { $match: { userEmail } },
+              {
+                $addFields: {
+                  wishlistObjectIds: {
+                    $map: {
+                      input: "$wishlist",
+                      as: "gameId",
+                      in: { $toObjectId: "$$gameId" }, // Convert to ObjectId
+                    },
+                  },
+                },
+              },
+              {
+                $lookup: {
+                  from: "allGames",
+                  localField: "wishlistObjectIds",
+                  foreignField: "_id",
+                  as: "games",
+                },
+              },
+              {
+                $project: {
+                  games: 1,
+                },
+              },
+            ])
+            .toArray();
 
           return res.status(201).json({
             success: true,
             message: "delete",
             deleteData: updateWishlist,
-            data: newWishListData,
+            data: newWishListData[0]?.games,
           });
         }
       } catch (error) {
