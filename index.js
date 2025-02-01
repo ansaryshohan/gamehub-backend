@@ -170,13 +170,13 @@ async function run() {
               },
             ])
             .toArray();
-          console.log(updateData);
+         // console.log(updateData);
           return res
             .status(200)
             .json({ success: true, data: { updateResponse, updateData } });
         }
       } catch (error) {
-        console.log(error);
+        res.json(401).json(error);
       }
     });
     // get data of wishlist for wishlist page
@@ -264,7 +264,7 @@ async function run() {
             const newWishListData = await wishlistCollection.findOne({
               userEmail,
             });
-            console.log(insertUserData);
+            // console.log(insertUserData);
             return res.status(201).json({
               success: true,
               message: "insert",
